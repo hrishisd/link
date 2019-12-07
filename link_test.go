@@ -94,3 +94,13 @@ func TestTraverseMultipleLinks(t *testing.T) {
 	expectedLinks := []Link{{"https://www.twitter.com/joncalhoun", "Check me out on twitter"}, {"https://github.com/gophercises", "Gophercises is on Github!"}}
 	makeLinkTest(t, htmlString, expectedLinks)()
 }
+
+func TestTraverseWithComment(t *testing.T) {
+	htmlString := `<html>
+	<body>
+	  <a href="/dog-cat">dog cat <!-- commented text SHOULD NOT be included! --></a>
+	</body>
+	</html>`
+	expectedLinks := []Link{{"/dog-cat", "dog cat"}}
+	makeLinkTest(t, htmlString, expectedLinks)
+}
