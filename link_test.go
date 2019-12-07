@@ -5,29 +5,47 @@ import (
 	"testing"
 )
 
-func makeLinkTestNoError(t *testing.T, htmlString string, expectedLink Link) func(*testing.T) {
-	return func(t *testing.T) {
+func makeLinkTest(t *testing.T, htmlString string, expectedLinks []Link) func() {
+	expectedContains := func(link Link) bool {
+		for _, other := range expectedLinks {
+			if other == link {
+				return true
+			}
+		}
+		return false
+	}
+
+	linksAreExpected := func(links []Link) bool {
+		if len(links) != len(expectedLinks) {
+			return false
+		}
+		for _, link := range links {
+			if !expectedContains(link) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return func() {
 		html := strings.NewReader(htmlString)
-		link, err := TraverseHTML(html)
+		links, err := TraverseHTML(html)
 		if err != nil {
 			t.Error("Error while parsing HTML with link")
 		}
-		if link != expectedLink {
-			t.Errorf("expected %v not equal to actual %v", expectedLink, link)
+		if !linksAreExpected(links) {
+			t.Errorf("expected %v not equal to actual %v", expectedLinks, links)
 		}
 	}
 }
 
 func TestTraverseBadHTML(t *testing.T) {
-	html := strings.NewReader("bad html")
-	_, err := TraverseHTML(html)
-	if err == nil {
-		t.Error("No error while parsing bad html")
-	}
+	htmlString := "bad html lalala"
+	makeLinkTest(t, htmlString, nil)()
 }
 
 func TestTraverseNoLink(t *testing.T) {
-	html := strings.NewReader(`<html>
+	htmlString := `<html>
 	<body>
 	
 	<h1>My First Heading</h1>
@@ -35,29 +53,44 @@ func TestTraverseNoLink(t *testing.T) {
 	<p>My first paragraph.</p>
 	
 	</body>
-	</html>`)
-
-	_, err := TraverseHTML(html)
-	if err == nil {
-		t.Error("No error while parsing bad html")
-	}
+	</html>`
+	makeLinkTest(t, htmlString, nil)()
 }
 
 func TestTraverseNoNesting(t *testing.T) {
-	makeLinkTestNoError(t, `<body>
+	htmlString := `<body>
 	<h1>Hello!</h1>
 	<a href="/other-page">A link to another page</a>
   </body>
-  </html>`, Link{Href: "/other-page", Text: "A link to another page"})(t)
+  </html>`
+	makeLinkTest(t, htmlString, []Link{{"/other-page", "A link to another page"}})()
 }
 
-func TestTraverseNested(t *testing.T) {
-	makeLinkTestNoError(t, `<a href="/dog">
+func TestTraverseSingleLinkNestedBody(t *testing.T) {
+	htmlString := `<a href="/dog">
 	<span>Something in a span</span>
 	Text not in a span
 	<b>Bold text!</b>
-  </a>`, Link{
-		Href: "/dog",
-		Text: "Something in a span Text not in a span Bold text!",
-	})(t)
+  </a>`
+	expectedLinks := []Link{{Href: "/dog", Text: "Something in a span Text not in a span Bold text!"}}
+	makeLinkTest(t, htmlString, expectedLinks)
+}
+
+func TestTraverseMultipleLinks(t *testing.T) {
+	htmlString := `</head>
+	<body>
+	  <h1>Social stuffs</h1>
+	  <div>
+		<a href="https://www.twitter.com/joncalhoun">
+		  Check me out on twitter
+		  <i class="fa fa-twitter" aria-hidden="true"></i>
+		</a>
+		<a href="https://github.com/gophercises">
+		  Gophercises is on <strong>Github</strong>!
+		</a>
+	  </div>
+	</body>
+	</html>`
+	expectedLinks := []Link{{"https://www.twitter.com/joncalhoun", "Check me out on twitter"}, {"https://github.com/gophercises", "Gophercises is on Github!"}}
+	makeLinkTest(t, htmlString, expectedLinks)()
 }

@@ -40,7 +40,7 @@ func textFromNode(node *html.Node) string {
 func textFromChildrenOf(node *html.Node) string {
 	res := ""
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		res += " " + textFromNode(c)
+		res += textFromNode(c)
 	}
 	return res
 }
@@ -63,27 +63,28 @@ func parseLinkFromNode(node *html.Node) (Link, error) {
 	return Link{href, text}, nil
 }
 
-func traverseHTMLNode(node *html.Node) (Link, error) {
-	// fmt.Println(node.Data)
+func traverseHTMLNode(node *html.Node) []Link {
+	var links []Link
 	if node.Type == html.ElementNode && node.Data == "a" {
-		return parseLinkFromNode(node)
-	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		link, err := traverseHTMLNode(child)
+		link, err := parseLinkFromNode(node)
 		if err == nil {
-			return link, err
+			links = append(links, link)
 		}
 	}
-	return Link{}, errors.New("No link found in html")
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		childLinks := traverseHTMLNode(child)
+		links = append(links, childLinks...)
+	}
+	return links
 }
 
 // TraverseHTML parses links from an io.Reader
-func TraverseHTML(htmlString io.Reader) (Link, error) {
+func TraverseHTML(htmlString io.Reader) ([]Link, error) {
 	root, err := html.Parse(htmlString)
 	if err != nil {
-		return Link{}, err
+		return nil, err
 	}
-	return traverseHTMLNode(root)
+	return traverseHTMLNode(root), nil
 }
 
 func main() {
