@@ -1,4 +1,4 @@
-package main
+package link
 
 import (
 	"strings"
@@ -29,7 +29,7 @@ func makeLinkTest(t *testing.T, htmlString string, expectedLinks []Link) func() 
 
 	return func() {
 		html := strings.NewReader(htmlString)
-		links, err := TraverseHTML(html)
+		links, err := Parse(html)
 		if err != nil {
 			t.Error("Error while parsing HTML with link")
 		}
@@ -39,12 +39,12 @@ func makeLinkTest(t *testing.T, htmlString string, expectedLinks []Link) func() 
 	}
 }
 
-func TestTraverseBadHTML(t *testing.T) {
+func TestParseBadHTML(t *testing.T) {
 	htmlString := "bad html lalala"
 	makeLinkTest(t, htmlString, nil)()
 }
 
-func TestTraverseNoLink(t *testing.T) {
+func TestParseNoLink(t *testing.T) {
 	htmlString := `<html>
 	<body>
 	
@@ -57,7 +57,7 @@ func TestTraverseNoLink(t *testing.T) {
 	makeLinkTest(t, htmlString, nil)()
 }
 
-func TestTraverseNoNesting(t *testing.T) {
+func TestParseNoNesting(t *testing.T) {
 	htmlString := `<body>
 	<h1>Hello!</h1>
 	<a href="/other-page">A link to another page</a>
@@ -66,7 +66,7 @@ func TestTraverseNoNesting(t *testing.T) {
 	makeLinkTest(t, htmlString, []Link{{"/other-page", "A link to another page"}})()
 }
 
-func TestTraverseSingleLinkNestedBody(t *testing.T) {
+func TestParseSingleLinkNestedBody(t *testing.T) {
 	htmlString := `<a href="/dog">
 	<span>Something in a span</span>
 	Text not in a span
@@ -76,7 +76,7 @@ func TestTraverseSingleLinkNestedBody(t *testing.T) {
 	makeLinkTest(t, htmlString, expectedLinks)
 }
 
-func TestTraverseMultipleLinks(t *testing.T) {
+func TestParseMultipleLinks(t *testing.T) {
 	htmlString := `</head>
 	<body>
 	  <h1>Social stuffs</h1>
@@ -95,7 +95,7 @@ func TestTraverseMultipleLinks(t *testing.T) {
 	makeLinkTest(t, htmlString, expectedLinks)()
 }
 
-func TestTraverseWithComment(t *testing.T) {
+func TestParseWithComment(t *testing.T) {
 	htmlString := `<html>
 	<body>
 	  <a href="/dog-cat">dog cat <!-- commented text SHOULD NOT be included! --></a>

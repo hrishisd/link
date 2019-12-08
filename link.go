@@ -1,10 +1,8 @@
-package main
+package link
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -16,24 +14,48 @@ type Link struct {
 	Text string
 }
 
-func check(err error) {
+// Parse will take in an HTML document and return a
+// slice of links parsed from it
+func Parse(htmlReader io.Reader) ([]Link, error) {
+	docRoot, err := html.Parse(htmlReader)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	return parseHTMLRec(docRoot), nil
 }
 
-func delExtraSpace(s string) string {
-	return strings.Join(strings.Fields(s), " ")
+func parseHTMLRec(node *html.Node) []Link {
+	var links []Link
+	if node.Type == html.ElementNode && node.Data == "a" {
+		link, err := parseLinkFromNode(node)
+		if err == nil {
+			links = append(links, link)
+		}
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		childLinks := parseHTMLRec(child)
+		links = append(links, childLinks...)
+	}
+	return links
+}
+
+func parseLinkFromNode(node *html.Node) (Link, error) {
+	href, err := hrefFromNode(node)
+	if err != nil {
+		return Link{}, err
+	}
+	text := delExtraSpace(textFromChildrenOf(node))
+	return Link{href, text}, nil
 }
 
 func textFromNode(node *html.Node) string {
 	switch node.Type {
 	case html.TextNode:
 		return node.Data
-	case html.CommentNode:
-		return ""
-	default:
+	case html.ElementNode:
 		return textFromChildrenOf(node)
+	default:
+		return ""
 	}
 }
 
@@ -54,43 +76,7 @@ func hrefFromNode(node *html.Node) (string, error) {
 	return "", errors.New("Didn't find href in node")
 }
 
-func parseLinkFromNode(node *html.Node) (Link, error) {
-	href, err := hrefFromNode(node)
-	if err != nil {
-		return Link{}, err
-	}
-	text := delExtraSpace(textFromChildrenOf(node))
-	return Link{href, text}, nil
-}
+func delExtraSpace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 
-func traverseHTMLNode(node *html.Node) []Link {
-	var links []Link
-	if node.Type == html.ElementNode && node.Data == "a" {
-		link, err := parseLinkFromNode(node)
-		if err == nil {
-			links = append(links, link)
-		}
-	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		childLinks := traverseHTMLNode(child)
-		links = append(links, childLinks...)
-	}
-	return links
-}
-
-// TraverseHTML parses links from an io.Reader
-func TraverseHTML(htmlString io.Reader) ([]Link, error) {
-	root, err := html.Parse(htmlString)
-	if err != nil {
-		return nil, err
-	}
-	return traverseHTMLNode(root), nil
-}
-
-func main() {
-	f, err := os.Open("ex2.html")
-	defer f.Close()
-	check(err)
-	link, err := TraverseHTML(f)
-	fmt.Println(link)
 }
